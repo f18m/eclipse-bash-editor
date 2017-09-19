@@ -135,7 +135,15 @@ abstract class AbstractMarkerHelper {
 		removeMarkers(resource, markerType);
 
 	}
-
+	
+	public void removeMarkers(IResource[] resources) {
+		if (resources==null){
+			return;
+		}
+		for (IResource resource: resources){
+			removeMarkers(resource);
+		}
+	}
 	private IMarker[] removeMarkers(IResource resource, String markerType) {
 		if (resource == null) {
 			/* maybe sync problem - guard close */

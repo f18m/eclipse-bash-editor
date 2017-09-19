@@ -16,9 +16,6 @@
 package de.jcup.basheditor;
 
 import static de.jcup.basheditor.preferences.BashEditorPreferenceConstants.*;
-import static de.jcup.basheditor.preferences.BashEditorValidationPreferenceConstants.*;
-
-import java.util.Collection;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IMarker;
@@ -65,7 +62,6 @@ import de.jcup.basheditor.outline.BashEditorContentOutlinePage;
 import de.jcup.basheditor.outline.BashEditorTreeContentProvider;
 import de.jcup.basheditor.outline.BashQuickOutlineDialog;
 import de.jcup.basheditor.outline.Item;
-import de.jcup.basheditor.script.BashError;
 import de.jcup.basheditor.script.BashScriptModel;
 import de.jcup.basheditor.script.BashScriptModelBuilder;
 
@@ -115,7 +111,7 @@ public class BashEditor extends TextEditor implements StatusMessageSupport, IRes
 			quickOutlineOpened = true;
 		}
 		Shell shell = getEditorSite().getShell();
-		String text = getDocumentText();
+		String text = BashEditorUtil.getDocumentText(getDocument());
 		
 		/* for quick outline create own model and ignore any validations */
 		modelBuilder.setIgnoreBlockValidation(true);
@@ -159,29 +155,7 @@ public class BashEditor extends TextEditor implements StatusMessageSupport, IRes
 		return IMarker.SEVERITY_INFO;
 	}
 
-	private void addErrorMarkers(BashScriptModel model) {
-		if (model == null) {
-			return;
-		}
-		IDocument document = getDocument();
-		if (document==null){
-			return;
-		}
-		Collection<BashError> errors = model.getErrors();
-		for (BashError error : errors) {
-			int startPos = error.getStart();
-			int line;
-			try {
-				line = document.getLineOfOffset(startPos);
-			} catch (BadLocationException e) {
-				EclipseUtil.logError("Cannot get line offset for " + startPos, e);
-				line = 0;
-			}
-			BashEditorUtil.addScriptError(this, line, error);
-		}
-
-	}
-
+	
 	public void setErrorMessage(String message) {
 		super.setStatusLineErrorMessage(message);
 	}
@@ -343,18 +317,7 @@ public class BashEditor extends TextEditor implements StatusMessageSupport, IRes
 		bracketMatcher.gotoMatchingBracket(this);
 	}
 
-	/**
-	 * Get document text - safe way.
-	 * 
-	 * @return string, never <code>null</code>
-	 */
-	String getDocumentText() {
-		IDocument doc = getDocument();
-		if (doc == null) {
-			return "";
-		}
-		return doc.get();
-	}
+	
 
 	@Override
 	protected void doSetInput(IEditorInput input) throws CoreException {
@@ -374,35 +337,9 @@ public class BashEditor extends TextEditor implements StatusMessageSupport, IRes
 	 * Does rebuild the outline - this is done asynchronous
 	 */
 	public void rebuildOutline() {
-		String text = getDocumentText();
+		/* FIXME ATR - refactor: delte or reintegrate after build*/
 		
-		IPreferenceStore store = BashEditorUtil.getPreferences().getPreferenceStore();
-
-		final boolean validateBlocks=store.getBoolean(VALIDATE_BLOCK_STATEMENTS.getId());
-		final boolean validateDo=store.getBoolean(VALIDATE_DO_STATEMENTS.getId());
-		final boolean validateIf=store.getBoolean(VALIDATE_IF_STATEMENTS.getId());
-		final boolean validateFunctions=store.getBoolean(VALIDATE_IF_STATEMENTS.getId());
-
-		EclipseUtil.safeAsyncExec(new Runnable() {
-
-			@Override
-			public void run() {
-				BashEditorUtil.removeScriptErrors(BashEditor.this);
-				
-				modelBuilder.setIgnoreBlockValidation(! validateBlocks);
-				modelBuilder.setIgnoreDoValidation(! validateDo);
-				modelBuilder.setIgnoreIfValidation(! validateIf);
-				modelBuilder.setIgnoreFunctionValidation(! validateFunctions);
-				
-				BashScriptModel model = modelBuilder.build(text);
-
-				getOutlinePage().rebuild(model);
-
-				if (model.hasErrors()) {
-					addErrorMarkers(model);
-				}
-			}
-		});
+		
 	}
 
 	/**

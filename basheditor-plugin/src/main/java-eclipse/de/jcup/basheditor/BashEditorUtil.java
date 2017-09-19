@@ -18,8 +18,11 @@ package de.jcup.basheditor;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.ILog;
+import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.jface.text.IDocument;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
 
@@ -28,7 +31,9 @@ import de.jcup.basheditor.script.BashError;
 
 public class BashEditorUtil {
 
-	private static UnpersistedMarkerHelper scriptProblemMarkerHelper = new UnpersistedMarkerHelper(
+	private static final IProgressMonitor NULL_MONITOR = new NullProgressMonitor();
+
+	private static PersistedMarkerHelper scriptProblemMarkerHelper = new PersistedMarkerHelper(
 			"de.jcup.basheditor.script.problem");
 
 	public static BashEditorPreferences getPreferences() {
@@ -62,25 +67,29 @@ public class BashEditorUtil {
 		scriptProblemMarkerHelper.removeMarkers(editorResource);
 	}
 
+	
+
 	public static void addScriptError(IEditorPart editor, int line, BashError error) {
 		if (editor == null) {
 			return;
 		}
-		if (error == null) {
-			return;
-		}
-
 		IEditorInput input = editor.getEditorInput();
 		if (input == null) {
 			return;
 		}
 		IResource editorResource = input.getAdapter(IResource.class);
-		if (editorResource == null) {
+
+		addScriptError(editorResource, line, error);
+	}
+
+	public static void addScriptError(IResource resource, int line, BashError error) {
+		if (resource == null) {
 			return;
 		}
+
 		try {
-			scriptProblemMarkerHelper.createErrorMarker(editorResource, error.getMessage(), line, error.getStart(),
-					+ error.getEnd());
+			scriptProblemMarkerHelper.createErrorMarker(resource, error.getMessage(), line, error.getStart(),
+					+error.getEnd());
 		} catch (CoreException e) {
 			logError("Was not able to add error markers", e);
 		}
@@ -91,5 +100,34 @@ public class BashEditorUtil {
 		ILog log = BashEditorActivator.getDefault().getLog();
 		return log;
 	}
+
+	public static void cleanAllValidationErrors(IProgressMonitor monitor) {
+		if (monitor == null) {
+			monitor = NULL_MONITOR;
+		}
+		monitor.subTask("Clean bash validation markers");
+		scriptProblemMarkerHelper.removeMarkers(EclipseUtil.getAllProjects());
+	}
+
+	public static void cleanValidationErrors(IResource resource, IProgressMonitor monitor) {
+		if (monitor == null) {
+			monitor = NULL_MONITOR;
+		}
+		monitor.subTask("Clean validation markers for resource" + resource.getName());
+		scriptProblemMarkerHelper.removeMarkers(EclipseUtil.getAllProjects());
+	}
+
+	/**
+	 * Get document text - safe way.
+	 * 
+	 * @return string, never <code>null</code>
+	 */
+	public static String getDocumentText(IDocument document) {
+		if (document == null) {
+			return "";
+		}
+		return document.get();
+	}
+
 
 }
